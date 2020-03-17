@@ -111,7 +111,26 @@ def set_bundle(context, bundleid):
     else:
         return f"\n\nERROR Setting Bundle:\n{json.dumps(response, indent=2)}"
 
-def workspacebundles(context, client, argument=None):
+def get_bundles():
+    """ returns a dict with information about the available bundles """
+    client = boto3.client('workspaces')
+    try:
+        response = client.describe_workspace_bundles()
+        return response.get('Bundles')
+    except Exception: #pylint: disable=broad-except
+        return False
+
+def get_bundle_name(bundleid):
+    """ returns the name of a given bundle id """
+    bundles = get_bundles()
+    if not bundles:
+        return "Error getting bundle name"
+    for bundle in bundles:
+        if bundleid == bundle.get('BundleId'):
+            return bundle.get('Name')
+    return "Unknown bundle name"
+
+def workspacebundles(context, argument=None):
     """ lists all the bundles on the current directory, can set the new active one """
     if argument.strip():
         newbundle = argument.strip()
@@ -119,15 +138,18 @@ def workspacebundles(context, client, argument=None):
         newbundle = False
     text = "Available Bundles:\n```\n"
     try:
-        bundles = client.describe_workspace_bundles()
+        #bundles = client.describe_workspace_bundles()
+        bundles = get_bundles() #client.describe_workspace_bundles()
 
-        if bundles.get('Bundles'):
-            for bundle in bundles.get('Bundles'):
+        #if bundles.get('Bundles'):
+        #    for bundle in bundles.get('Bundles'):
+        if bundles:
+            for bundle in bundles:
                 text += f" - ID: {bundle['BundleId']} Name: {bundle['Name']}"
                 if bundle['BundleId'] == newbundle:
                     # set new bundle id
                     text += set_bundle(context, newbundle)
-                elif not newbundle and (os.environ.get('BUNDLEID') and os.environ.get('BUNDLEID') == bundle['BundleId']):
+                elif not newbundle and (os.environ.get('BUNDLEID') and os.environ.get('BUNDLEID') == bundle['BundleId']): # pylint: disable=line-too-long
                     text += f""" <=- Current active bundle for bot provisioning"""
                 text += f"\n\t- Type: {bundle['ComputeType']['Name']}"
                 text += f" Root Disk: {bundle['RootStorage']['Capacity']}Gb "
@@ -209,7 +231,11 @@ def workspaceinfo(client, username):
         # "RetryAttempts": 0}}
         if findworkspace.get('Workspaces'):
             for workspace in findworkspace.get('Workspaces'):
-                text += f"Workspace {workspace.get('WorkspaceId')} for user {workspace.get('UserName')} in state {workspace.get('State')} (Bundle ID: {workspace.get('BundleId')}\n" #pylint: disable=line-too-long
+                wsid = workspace.get('WorkspaceId')
+                user = workspace.get('UserName')
+                state = workspace.get('State')
+                bundlename = get_bundle_name(workspace.get('BundleId'))
+                text += f"Workspace {wsid} for user {user} in state {state} (Bundle: {bundlename})\n" #pylint: disable=line-too-long
         else:
             text = f"No workspaces found for username {username}"
     except Exception as e: # pylint: disable=broad-except,invalid-name
@@ -219,6 +245,9 @@ def workspaceinfo(client, username):
 
 def workspacelist(client):
     """ lists the currently provisioned workspaces """
+    bundle_data = {}
+    for bundle in get_bundles():
+        bundle_data[bundle.get('BundleId')] = bundle
     text = ""
     states = {}
     try:
@@ -246,21 +275,52 @@ def workspacelist(client):
         # "RetryAttempts": 0
         # }
         # }
+        workspace_field = {
+            'WorkspaceId' : {
+                'default' : len("Workspace ID")+2,
+                'current' : 0,
+                'text' : "Workspace ID",
+                },
+            'UserName' : {
+                'default' : len("Username")+2,
+                'current' : 0,
+                'text' : "Username",
+            },
+            'ComputerName' : {
+                'default' : len("Hostname")+2,
+                'current' : 0,
+                'text' : 'Hostname',
+                },
+        }
         if findworkspace.get('Workspaces'):
+            # find the set of states
             for workspace in findworkspace.get('Workspaces'):
                 if workspace.get('State') not in states:
                     states[workspace.get('State')] = []
                 states[workspace.get('State')].append(workspace)
-
+            # iterate through states
             for state in states:
-                text += f"Workspaces in state '{state}'\n```\n"
+                text += f"{state}\n```"
+                # calculate field layouts
+                for field in workspace_field:
+                    lengths = [workspace_field[field]['default']] + [len(w[field]) for w in states[state]]
+                    workspace_field[field]['current'] = max(lengths)
+                    fstring = '{:<'+str(max(lengths))+'}\t'
+                    text += fstring.format(workspace_field[field]['text'])
+                text += "Bundle Name\n"
+                # display code
                 for workspace in states[state]:
-                    text += f"id: {workspace.get('WorkspaceId')} computer name: {workspace.get('ComputerName')} user: {workspace.get('UserName')} bundle: {workspace.get('BundleId')}\n" #pylint: disable=line-too-long
-                text += '```\n'
+                    workspacebundle = bundle_data.get(workspace.get('BundleId'))
+                    bundlename = workspacebundle.get("Name")
+                    for field in workspace_field:
+                        fstring = '{:<'+str(workspace_field[field]['current'])+'}\t'
+                        text += fstring.format(workspace.get(field))
+                    text += f"{bundlename}\n"
+                text += "```\n"
         else:
             text = f"No workspaces found?"
     except Exception as e: # pylint: disable=broad-except,invalid-name
-        return f"ERROR: {e}"
+        return f"ERROR: {e} - {e.args}"
     return text
 
 
@@ -281,18 +341,18 @@ def workspacedebug(event, context, data):
     #context_keys = [key for key in dir(context) if not key.startswith("_")]
     context_data = {
         'function_name' : context.function_name
-#           "aws_request_id",
-#   "client_context",
-#   "function_name",
-#   "function_version",
-#   "get_remaining_time_in_millis",
-#   "identity",
-#   "invoked_function_arn",
-#   "log",
-#   "log_group_name",
-#   "log_stream_name",
-#   "memory_limit_in_mb"
     }
+    #   "aws_request_id",
+    #   "client_context",
+    #   "function_name",
+    #   "function_version",
+    #   "get_remaining_time_in_millis",
+    #   "identity",
+    #   "invoked_function_arn",
+    #   "log",
+    #   "log_group_name",
+    #   "log_stream_name",
+    #   "memory_limit_in_mb"
 
     text = f"""EVENT DATA
 ```
@@ -356,7 +416,7 @@ def lambda_handler(event, context): # pylint: disable=unused-argument
         if command == 'workspacecreate': #pylint: disable=no-else-return
             return return_message(workspacecreate(client, argument))
         elif command == 'workspacebundles':
-            return return_message(workspacebundles(context, client, argument))
+            return return_message(workspacebundles(context, argument))
         elif command == 'workspaceterminate':
             return return_message(workspaceterminate(client, argument))
         elif command == 'workspaceinfo':
