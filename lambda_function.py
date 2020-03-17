@@ -83,9 +83,9 @@ def workspacecreate(client, username):
         text += f"Failed to create workspace for '{failedrequest['WorkspaceRequest']['UserName']}': {failedrequest['ErrorMessage']}\n" #pylint: disable=line-too-long
     for pendingrequest in retval.get('PendingRequests'):
         # {
-        # "WorkspaceId": "ws-kvf38h1dw", "DirectoryId": "d-976716669e",
-        # "UserName": "james.hodgkinson", "State": "PENDING",
-        # "BundleId": "wsb-24k81ycr4",
+        # "WorkspaceId": "ws-aaabbbccc", "DirectoryId": "d-696996669e",
+        # "UserName": "example.user", "State": "PENDING",
+        # "BundleId": "wsb-aaabbbccc",
         # "UserVolumeEncryptionEnabled": false, "RootVolumeEncryptionEnabled": false
         # }
         text += f"Workspace {pendingrequest.get('WorkspaceId')} for user {pendingrequest.get('UserName')} is in state {pendingrequest.get('State')}\n" #pylint: disable=line-too-long
@@ -168,9 +168,9 @@ def workspaceterminate(client, username):
         findworkspace = client.describe_workspaces(DirectoryId=DIRECTORYID, UserName=username,)
         # {"Workspaces":
         #   [
-        #   {"WorkspaceId": "ws-kvf38h1dw", "DirectoryId": "d-976716669e",
-        #    "UserName": "james.hodgkinson", "IpAddress": "10.136.11.138",
-        # "State": "AVAILABLE", "BundleId": "wsb-24k81ycr4", "SubnetId": "subnet-0e25fa192e9ff4f8a",
+        #   {"WorkspaceId": "ws-aaabbbccc", "DirectoryId": "d-696996669e",
+        #    "UserName": "example.user", "IpAddress": "10.0.11.138",
+        # "State": "AVAILABLE", "BundleId": "wsb-aaabbbccc", "SubnetId": "wsb-aaaabbbbccccdddd",
         # "ComputerName": "EC2AMAZ-CCUQCD5",
         # "WorkspaceProperties":
         # {"RunningMode": "AUTO_STOP", "RunningModeAutoStopTimeoutInMinutes": 180,
@@ -211,9 +211,9 @@ def workspaceinfo(client, username):
     text = ""
     try:
         findworkspace = client.describe_workspaces(DirectoryId=DIRECTORYID, UserName=username,)
-        # {"Workspaces": [{"WorkspaceId": "ws-kvf38h1dw", "DirectoryId": "d-976716669e",
-        # "UserName": "james.hodgkinson", "IpAddress": "10.136.11.138", "State": "AVAILABLE",
-        # "BundleId": "wsb-24k81ycr4", "SubnetId": "subnet-0e25fa192e9ff4f8a",
+        # {"Workspaces": [{"WorkspaceId": "ws-aaabbbccc", "DirectoryId": "d-696996669e",
+        # "UserName": "example.user", "IpAddress": "10.0.11.138", "State": "AVAILABLE",
+        # "BundleId": "wsb-aaabbbccc", "SubnetId": "wsb-aaaabbbbccccdddd",
         # "ComputerName": "EC2AMAZ-CCUQCD5",
         # "WorkspaceProperties":
         # {
@@ -253,10 +253,10 @@ def workspacelist(client):
     try:
         findworkspace = client.describe_workspaces(DirectoryId=DIRECTORYID)
         # {"Workspaces":
-        # [{"WorkspaceId": "ws-kvf38h1dw", "DirectoryId": "d-976716669e",
-        # "UserName": "james.hodgkinson", "IpAddress": "10.136.11.138", "State": "AVAILABLE",
-        # "BundleId": "wsb-24k81ycr4",
-        # "SubnetId": "subnet-0e25fa192e9ff4f8a", "ComputerName": "EC2AMAZ-CCUQCD5",
+        # [{"WorkspaceId": "ws-aaabbbccc", "DirectoryId": "d-696996669e",
+        # "UserName": "example.user", "IpAddress": "10.0.11.138", "State": "AVAILABLE",
+        # "BundleId": "wsb-aaabbbccc",
+        # "SubnetId": "wsb-aaaabbbbccccdddd", "ComputerName": "EC2AMAZ-CCUQCD5",
         # "WorkspaceProperties":
         # {
         # "RunningMode": "AUTO_STOP", "RunningModeAutoStopTimeoutInMinutes": 180,
