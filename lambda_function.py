@@ -303,7 +303,7 @@ def workspacelist(client):
                 text += f"{state}\n```"
                 # calculate field layouts
                 for field in workspace_field:
-                    lengths = [workspace_field[field]['default']] + [len(w[field]) for w in states[state]]
+                    lengths = [workspace_field[field]['default']] + [len(w.get(field, 'n/a')) for w in states[state]]
                     workspace_field[field]['current'] = max(lengths)
                     fstring = '{:<'+str(max(lengths))+'}\t'
                     text += fstring.format(workspace_field[field]['text'])
@@ -314,8 +314,14 @@ def workspacelist(client):
                     bundlename = workspacebundle.get("Name")
                     for field in workspace_field:
                         fstring = '{:<'+str(workspace_field[field]['current'])+'}\t'
-                        text += fstring.format(workspace.get(field))
-                    text += f"{bundlename}\n"
+                        if workspace.get(field):
+                            text += fstring.format(workspace.get(field))
+                        else:
+                            text += fstring.format("n/a")
+                    if workspace.get('BundleId'):
+                        text += f"{bundlename}\n"
+                    else:
+                        text += "n/a\n"
                 text += "```\n"
         else:
             text = f"No workspaces found?"
