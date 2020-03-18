@@ -243,64 +243,62 @@ def workspaceinfo(client, username):
 
     return text
 
-def workspacelist(client):
+def get_workspaces(client, token=False):
+    """ does the describe workspaces call and works around paging """
+    if token:
+        response = client.describe_workspaces(DirectoryId=DIRECTORYID, NextToken=token)
+    else:
+        response = client.describe_workspaces(DirectoryId=DIRECTORYID)
+    
+    if not response.get('Workspaces'):
+        retval = False
+    else:
+        retval = response.get('Workspaces')
+        if response.get('NextToken'):
+            # there are more things to ask for
+            retval.extend(get_workspaces(client=client, token=response.get('NextToken')))
+    return retval 
+
+def workspacelist(client, argument_object):
     """ lists the currently provisioned workspaces """
     bundle_data = {}
     for bundle in get_bundles():
         bundle_data[bundle.get('BundleId')] = bundle
     text = ""
     states = {}
-    try:
-        findworkspace = client.describe_workspaces(DirectoryId=DIRECTORYID)
-        # {"Workspaces":
-        # [{"WorkspaceId": "ws-aaabbbccc", "DirectoryId": "d-696996669e",
-        # "UserName": "example.user", "IpAddress": "10.0.11.138", "State": "AVAILABLE",
-        # "BundleId": "wsb-aaabbbccc",
-        # "SubnetId": "wsb-aaaabbbbccccdddd", "ComputerName": "EC2AMAZ-CCUQCD5",
-        # "WorkspaceProperties":
-        # {
-        # "RunningMode": "AUTO_STOP", "RunningModeAutoStopTimeoutInMinutes": 180,
-        # "RootVolumeSizeGib": 80, "UserVolumeSizeGib": 50, "ComputeTypeName": "STANDARD"
-        # },
-        # "ModificationStates": []}
-        # ],
-        # "ResponseMetadata":
-        # {
-        # "RequestId": "1071abab-96fb-4d6f-a3ea-8abfba3202eb", "HTTPStatusCode": 200,
-        # "HTTPHeaders":
-        # {
-        # "x-amzn-requestid": "1071abab-96fb-4d6f-a3ea-8abfba3202eb", "content-type": "application/x-amz-json-1.1",
-        # "content-length": "468", "date": "Mon, 16 Mar 2020 10:31:25 GMT"
-        # },
-        # "RetryAttempts": 0
-        # }
-        # }
-        workspace_field = {
-            'WorkspaceId' : {
-                'default' : len("Workspace ID")+2,
-                'current' : 0,
-                'text' : "Workspace ID",
-                },
-            'UserName' : {
-                'default' : len("Username")+2,
-                'current' : 0,
-                'text' : "Username",
+    workspace_field = {
+        'WorkspaceId' : {
+            'default' : len("Workspace ID")+2,
+            'current' : 0,
+            'text' : "Workspace ID",
             },
-            'ComputerName' : {
-                'default' : len("Hostname")+2,
-                'current' : 0,
-                'text' : 'Hostname',
-                },
-        }
-        if findworkspace.get('Workspaces'):
+        'UserName' : {
+            'default' : len("Username")+2,
+            'current' : 0,
+            'text' : "Username", 
+        },
+        'ComputerName' : {
+            'default' : len("Hostname")+2,
+            'current' : 0,
+            'text' : 'Hostname',
+            },
+    }
+    try:
+        workspaces = get_workspaces(client)
+
+        #if findworkspace.get('Workspaces'):
+        if workspaces:
             # find the set of states
-            for workspace in findworkspace.get('Workspaces'):
+            for workspace in workspaces:
                 if workspace.get('State') not in states:
                     states[workspace.get('State')] = []
                 states[workspace.get('State')].append(workspace)
             # iterate through states
             for state in states:
-                text += f"{state}\n```"
+                if argument_object.strip() != '' and argument_object.lower() != state.lower():
+                    continue
+
+                text += f"{state} ({len(states[state])})\n```"
                 # calculate field layouts
                 for field in workspace_field:
                     lengths = [workspace_field[field]['default']] + [len(w.get(field, 'n/a')) for w in states[state]]
@@ -428,7 +426,7 @@ def lambda_handler(event, context): # pylint: disable=unused-argument
         elif command == 'workspaceinfo':
             return return_message(workspaceinfo(client, argument))
         elif command == 'workspacelist':
-            return return_message(workspacelist(client))
+            return return_message(workspacelist(client, argument))
         elif command == 'workspacedebug':
             return return_message(workspacedebug(event, context, data))
         else:
