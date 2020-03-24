@@ -10,6 +10,7 @@ ADMINS (Comma-separated list of slack user_id's, easy to grab by running /worksp
 ADMIN_CHANNEL (Slack channel ID)
 DIRECTORYID (Current DirectoryId for interactions)
 BUNDLEID (Current BundleId for provisioning)
+SLACKTOKEN (Slack OAuth Token - https://api.slack.com/apps/<appid>/oauth)
 
 Optional environment variables:
 https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/workspaces.html#WorkSpaces.Client.create_workspaces
@@ -24,7 +25,10 @@ RUNNINGMODE ('AUTO_STOP'|'ALWAYS_ON')
 import os
 import base64
 import json
+
 import boto3
+
+from workspacecreate import workspacecreate
 
 ADMINS = os.environ.get('ADMINS', '').split(',')
 ADMIN_CHANNEL = os.environ.get('ADMIN_CHANNEL', False)
@@ -36,6 +40,18 @@ RUNNINGMODE = os.environ.get('RUNNINGMODE', 'AUTO_STOP')
 ROOTVOLUMESIZE = os.environ.get('ROOTVOLUMESIZE', 80)
 USERVOLUMESIZE = os.environ.get('USERVOLUMESIZE', 50)
 COMPUTETYPENAME = os.environ.get('COMPUTETYPENAME', 'STANDARD')
+SLACKTOKEN = os.environ.get('SLACKTOKEN')
+
+CONFIGURATION = {
+    'directoryid' : DIRECTORYID,
+    'bundleid' : BUNDLEID,
+    'auto_stop_minutes' : AUTO_STOP_MINUTES,
+    'runningmode' : RUNNINGMODE,
+    'rootvolumesize' : ROOTVOLUMESIZE,
+    'uservolumesize' : USERVOLUMESIZE,
+    'computetypename' : COMPUTETYPENAME,
+    'slacktoken' : SLACKTOKEN,
+}
 
 ADMIN_COMMANDS = [
     'workspacecreate',
@@ -54,42 +70,6 @@ ERROR_403 = {'statusCode' : 403, 'body' : "Nope"}
 def return_message(message):
     """ returns a message object for slack """
     return {'statusCode': 200, 'body': message,}
-
-
-def workspacecreate(client, username):
-    """ creates a workspace for a given user """
-    try:
-        retval = client.create_workspaces(
-            Workspaces=[
-                {
-                    'DirectoryId': DIRECTORYID,
-                    'UserName': username,
-                    'BundleId': BUNDLEID,
-                    'UserVolumeEncryptionEnabled': False,
-                    'RootVolumeEncryptionEnabled': False,
-                    'WorkspaceProperties': {
-                        'RunningMode': RUNNINGMODE,
-                        'RunningModeAutoStopTimeoutInMinutes': AUTO_STOP_MINUTES,
-                        'RootVolumeSizeGib': ROOTVOLUMESIZE,
-                        'UserVolumeSizeGib': USERVOLUMESIZE,
-                        'ComputeTypeName': COMPUTETYPENAME
-                    }
-                },
-            ])
-    except Exception as e: # pylint: disable=broad-except,invalid-name
-        return {'ERROR' : e}
-    text = ""
-    for failedrequest in retval.get('FailedRequests'):
-        text += f"Failed to create workspace for '{failedrequest['WorkspaceRequest']['UserName']}': {failedrequest['ErrorMessage']}\n" #pylint: disable=line-too-long
-    for pendingrequest in retval.get('PendingRequests'):
-        # {
-        # "WorkspaceId": "ws-aaabbbccc", "DirectoryId": "d-696996669e",
-        # "UserName": "example.user", "State": "PENDING",
-        # "BundleId": "wsb-aaabbbccc",
-        # "UserVolumeEncryptionEnabled": false, "RootVolumeEncryptionEnabled": false
-        # }
-        text += f"Workspace {pendingrequest.get('WorkspaceId')} for user {pendingrequest.get('UserName')} is in state {pendingrequest.get('State')}\n" #pylint: disable=line-too-long
-    return text
 
 def set_bundle(context, bundleid):
     """ sets the bundle on the lambda """
@@ -249,7 +229,7 @@ def get_workspaces(client, token=False):
         response = client.describe_workspaces(DirectoryId=DIRECTORYID, NextToken=token)
     else:
         response = client.describe_workspaces(DirectoryId=DIRECTORYID)
-    
+
     if not response.get('Workspaces'):
         retval = False
     else:
@@ -257,7 +237,7 @@ def get_workspaces(client, token=False):
         if response.get('NextToken'):
             # there are more things to ask for
             retval.extend(get_workspaces(client=client, token=response.get('NextToken')))
-    return retval 
+    return retval
 
 def workspacelist(client, argument_object):
     """ lists the currently provisioned workspaces """
@@ -275,7 +255,7 @@ def workspacelist(client, argument_object):
         'UserName' : {
             'default' : len("Username")+2,
             'current' : 0,
-            'text' : "Username", 
+            'text' : "Username",
         },
         'ComputerName' : {
             'default' : len("Hostname")+2,
@@ -404,7 +384,8 @@ def lambda_handler(event, context): # pylint: disable=unused-argument
     else:
         command = data.get('command')[1:]
         command_user = data.get('user_id')
-
+        CONFIGURATION['user_id'] = command_user
+        CONFIGURATION['trigger_id'] = data.get('trigger_id')
         # if you're an admin you can run it anywhere, if you're calling it from
         # the admin channel anyone can run admin commands
         if command in ADMIN_COMMANDS:
@@ -416,9 +397,12 @@ def lambda_handler(event, context): # pylint: disable=unused-argument
         if userlength > 1:
             argument = argument.replace('+', ' ')
             return return_message(f"aws bot only works for one argument, was provided {userlength} in argument: '{argument}'") #pylint: disable=line-too-long
-
         if command == 'workspacecreate': #pylint: disable=no-else-return
-            return return_message(workspacecreate(client, argument))
+            response = return_message(workspacecreate(client, argument, event=event, configuration=CONFIGURATION))
+            if response:
+                return return_message(response)
+            else:
+                return return_message("")
         elif command == 'workspacebundles':
             return return_message(workspacebundles(context, argument))
         elif command == 'workspaceterminate':
