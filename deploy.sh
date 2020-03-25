@@ -1,18 +1,32 @@
 #!/usr/bin/env bash
 
+pipenv run pytest *.py workspaces/*.py 
+
 mv setup.txt setup.cfg
-echo "Removing old package"
 
 if [ -f function.zip ]; then   
     rm function.zip
 fi
-rm -rf package/
 
-echo "Updating python libs"
-pip3 install --upgrade --target ./package -r requirements.txt
+if [ -z "${1}" ]; then
+    if [ "${1}" == "clean" ]; then
+        echo "Removing old package"
+        rm -rf package/
+
+        echo "Updating python libs"
+        pip3 install --upgrade --target ./package -r requirements.txt
+
+    else
+        echo "Don't know what ${1} means, try clean?"
+    fi
+fi
+
+
 mv setup.cfg setup.txt 
-cd package || exit
 
+rsync -a workspaces package/
+
+cd package || exit
 echo "Adding python packages to package"
 zip -q -r9 ../function.zip .
 cd ..
