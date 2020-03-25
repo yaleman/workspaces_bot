@@ -179,7 +179,6 @@ def lambda_handler(event, context): # pylint: disable=unused-argument
                 return return_message("Working on it...")
             else:
                 return return_message(f"Failed to call workspaces.create(): {str(response)}")
-            #return message
 
         elif command == 'workspacebundles':
             return return_message(workspacebundles(context, configuration=CONFIGURATION, argument=argument))
@@ -188,7 +187,7 @@ def lambda_handler(event, context): # pylint: disable=unused-argument
         elif command == 'workspaceinfo':
             return return_message(workspaceinfo(client, configuration=CONFIGURATION, username=argument))
         elif command == 'workspacelist':
-            return return_message(workspacelist(client, configuration=CONFIGURATION, argument_object=argument))
+            return return_message(workspacelist(configuration=CONFIGURATION, argument_object=argument))
         elif command == 'workspacedebug':
             return return_message(workspacedebug(event, context, data))
         else:

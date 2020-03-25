@@ -3,7 +3,7 @@
 
 from .utilities import get_bundles, get_workspaces
 
-def workspacelist(client, configuration, argument_object):
+def workspacelist(configuration, argument_object, region='ap-southeast-1'):
     """ lists the currently provisioned workspaces """
     bundle_data = {}
     for bundle in get_bundles():
@@ -28,12 +28,14 @@ def workspacelist(client, configuration, argument_object):
             },
     }
     try:
-        workspaces = get_workspaces(client, configuration=configuration)
-
+        print("Getting workspaces")
+        workspaces = get_workspaces(configuration=configuration, region=region)
+        print("done!")
         #if findworkspace.get('Workspaces'):
         if workspaces:
             # find the set of states
-            for workspace in workspaces:
+            print(f"found {len(workspaces)} workspaces")
+            for workspace in workspaces[5:]:
                 if workspace.get('State') not in states:
                     states[workspace.get('State')] = []
                 states[workspace.get('State')].append(workspace)
@@ -53,7 +55,7 @@ def workspacelist(client, configuration, argument_object):
                 # display code
                 for workspace in states[state]:
                     workspacebundle = bundle_data.get(workspace.get('BundleId'))
-                    bundlename = workspacebundle.get("Name")
+                    bundlename = 'not pulled' #workspacebundle.get("Name")
                     for field in workspace_field:
                         fstring = '{:<'+str(workspace_field[field]['current'])+'}\t'
                         if workspace.get(field):

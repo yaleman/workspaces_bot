@@ -2,6 +2,7 @@
 
 import json
 import boto3
+from boto3.session import Session
 
 def get_bundle_name(bundleid):
     """ returns the name of a given bundle id """
@@ -13,9 +14,12 @@ def get_bundle_name(bundleid):
             return bundle.get('Name')
     return "Unknown bundle name"
 
-def get_bundles():
+def get_bundles(region='ap-southeast-2'):
     """ returns a dict with information about the available bundles """
-    client = boto3.client('workspaces')
+    session = Session(
+        region_name=region,
+    )
+    client = session.client('workspaces')
     try:
         response = client.describe_workspace_bundles()
         return response.get('Bundles')
@@ -24,12 +28,21 @@ def get_bundles():
 
 
 
-def get_workspaces(client, configuration, token=False):
+def get_workspaces(configuration, token=None, region='ap-southeast-2'):
     """ does the describe workspaces call and works around paging """
+    session = Session(
+        region_name=region
+    )
+    client = session.client('workspaces')
     if token:
-        response = client.describe_workspaces(DirectoryId=configuration.get('directoryid'), NextToken=token)
+        response = client.describe_workspaces(
+            DirectoryId=configuration.get('directoryid'),
+            NextToken=token,
+        )
     else:
-        response = client.describe_workspaces(DirectoryId=configuration.get('directoryid'))
+        response = client.describe_workspaces(
+            DirectoryId=configuration.get('directoryid'),
+        )
 
     if not response.get('Workspaces'):
         retval = False
@@ -37,7 +50,13 @@ def get_workspaces(client, configuration, token=False):
         retval = response.get('Workspaces')
         if response.get('NextToken'):
             # there are more things to ask for
-            retval.extend(get_workspaces(client=client, configuration=configuration, token=response.get('NextToken')))
+            retval.extend(
+                get_workspaces(
+                    configuration=configuration,
+                    region=region,
+                    token=response.get('NextToken'),
+                    ),
+                )
     return retval
 
 

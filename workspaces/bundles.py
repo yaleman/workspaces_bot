@@ -4,14 +4,14 @@ from .utilities import get_bundles, set_bundle
 
 def workspacebundles(context, configuration=None, argument=None):
     """ lists all the bundles on the current directory, can set the new active one """
+    # TODO: make this multi-region, needs to update BUNDLEID_APSE1 and BUNDLEID_APSE2 (or... do something smarter)
     if argument.strip():
         newbundle = argument.strip()
     else:
         newbundle = False
     text = "Available Bundles:\n```\n"
     try:
-        #bundles = client.describe_workspace_bundles()
-        bundles = get_bundles() #client.describe_workspace_bundles()
+        bundles = get_bundles()
 
         #if bundles.get('Bundles'):
         #    for bundle in bundles.get('Bundles'):
