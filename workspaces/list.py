@@ -55,7 +55,7 @@ def workspacelist(configuration, argument_object, region='ap-southeast-1'):
                 # display code
                 for workspace in states[state]:
                     workspacebundle = bundle_data.get(workspace.get('BundleId'))
-                    bundlename = 'not pulled' #workspacebundle.get("Name")
+                    bundlename = workspacebundle.get("Name")
                     for field in workspace_field:
                         fstring = '{:<'+str(workspace_field[field]['current'])+'}\t'
                         if workspace.get(field):

@@ -1,9 +1,11 @@
 """ terminate things """
 
+from boto3 import client as boto3client
 
-def workspaceterminate(client, configuration, username):
+def workspaceterminate(configuration, username):
     """ terminates a workspace for a given user """
     text = ""
+    client = boto3client('workspaces')
     try:
         findworkspace = client.describe_workspaces(DirectoryId=configuration.get('directoryid'), UserName=username,)
         # {"Workspaces":

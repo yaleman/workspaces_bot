@@ -1,10 +1,12 @@
 """ implements workspaceinfo """
 
+from boto3 import client as boto3client
 from .utilities import get_bundle_name
 
-def workspaceinfo(client, configuration, username):
+def workspaceinfo(configuration, username):
     """ shows information for a given user's workspace """
     text = ""
+    client = boto3client('workspaces')
     try:
         findworkspace = client.describe_workspaces(DirectoryId=configuration.get('directoryid'), UserName=username,)
         # {"Workspaces": [{"WorkspaceId": "ws-aaabbbccc", "DirectoryId": "d-696996669e",
