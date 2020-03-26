@@ -2,7 +2,7 @@
 import os
 
 ADMINS = os.environ.get('ADMINS', '').split(',')
-ADMIN_CHANNEL = os.environ.get('ADMIN_CHANNEL', False)
+ADMIN_CHANNELS = os.environ.get('ADMIN_CHANNELS', "").split(',')
 DIRECTORYID = os.environ.get('DIRECTORYID')
 BUNDLEID = os.environ.get('BUNDLEID')
 
@@ -17,17 +17,23 @@ CONFIGURATION = {
     'directoryid' : DIRECTORYID,
     'directoryid_apse1' : os.environ.get('DIRECTORYID_APSE1'),
     'directoryid_apse2' : os.environ.get('DIRECTORYID_APSE2'),
+    'directorymap' : {
+        'ap-southeast-1' : os.environ.get('DIRECTORYID_APSE1'),
+        'ap-southeast-2' : os.environ.get('DIRECTORYID_APSE2'),
+    },
     'bundleid' : BUNDLEID,
     'bundleid_apse1' : os.environ.get('BUNDLEID_APSE1'),
     'bundleid_apse2' : os.environ.get('BUNDLEID_APSE2'),
     'auto_stop_minutes' : AUTO_STOP_MINUTES,
+
+    'regions' : os.environ.get('REGIONS', "").split(","),
     'runningmode' : RUNNINGMODE,
     'rootvolumesize' : ROOTVOLUMESIZE,
     'uservolumesize' : USERVOLUMESIZE,
     'computetypename' : COMPUTETYPENAME,
     'slacktoken' : SLACKTOKEN,
     'jamesid' : 'UK6900NGK', #used for troubleshooting
-    'adminchannel' : ADMIN_CHANNEL, # "G0100BR9Y20",
+    'adminchannel' : ADMIN_CHANNELS, # "G0100BR9Y20",
 }
 
 ADMIN_COMMANDS = [

@@ -5,30 +5,11 @@ import boto3.session
 from slack import WebClient
 from slack.errors import SlackApiError
 
-from .utilities import return_message
+from .utilities import call_lambda, return_message
 
-def dump_debug(event, configuration, payload):
-    """ posts a slack message with a load of debug info """
-    slackclient = WebClient(token=configuration.get('slacktoken'))
-    slackclient.chat_postEphemeral(
-        #channel=CONFIGURATION.get('jamestoken'),
-        channel=configuration.get('adminchannel'),
-        user=configuration['jamesid'],
-        text=f"""
-*Dump_debug:*
-
-Event:
-```
-{json.dumps(event, indent=2)}
-```
-
-Payload:
-```
-{json.dumps(payload, indent=4)}
-```
-"""
-    )
-    return return_message("Dumping Debug")
+TAG_LOCATIONS = ['Brisbane', 'Sydney', 'Melbourne', 'Manila']
+TAG_TEAMS = ['WebCentral', 'ARQ Care', 'TPP Wholesale']
+REGIONS = ['ap-southeast-2', 'ap-southeast-1']
 
 ID_VIEW_CREATEUSER = 'view_createuser'
 ID_BLOCK_USERNAME = "create_block_username"
@@ -125,9 +106,9 @@ CREATEUSER_MODAL = {
                 "emoji": True
             }
         },
-        select_block(ID_BLOCK_REGION, ID_FIELD_REGION, ['ap-southeast-2', 'ap-southeast-1'], "Workspace Region"),
-        select_block(ID_BLOCK_LOCATION, ID_FIELD_LOCATION, ['Brisbane', 'Sydney', 'Melbourne'], "User Location"),
-        select_block(ID_BLOCK_TEAM, ID_FIELD_TEAM, ['WebCentral', 'ARQ Care', 'TPP Wholesale'], "Team"),
+        select_block(ID_BLOCK_REGION, ID_FIELD_REGION, REGIONS, "Workspace Region"),
+        select_block(ID_BLOCK_LOCATION, ID_FIELD_LOCATION, TAG_LOCATIONS, "User Location"),
+        select_block(ID_BLOCK_TEAM, ID_FIELD_TEAM, TAG_TEAMS, "Team"),
         # {
         #     "type": "input",
         #     "block_id": ID_BLOCK_NOTIFY_PERSON,
@@ -273,17 +254,20 @@ def handle_view_submission(event, payload, configuration): # pylint: disable=unu
         ]
 
         # call the lambda asynchronously so we can get back to the user in time...
+        payload = {
+            'action' : 'workspacecreate_doit',
+            'configuration' : configuration,
+            'username' : endstate['username'],
+            'region' : endstate['region'],
+            'tags' : tags
+        }
+        call_lambda(payload)
+
         lambdaclient = boto3.client('lambda')
         lambdaclient.invoke(
             FunctionName='workspacebot',
             InvocationType='Event',
             Payload=json.dumps({
-                'fromotherlambda' : True,
-                'action' : 'workspacecreate_doit',
-                'configuration' : configuration,
-                'username' : endstate['username'],
-                'region' : endstate['region'],
-                'tags' : tags
             }),
         )
 

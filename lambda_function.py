@@ -7,12 +7,13 @@ needs to have workspaces access for its role, and expects to respond to slash co
 Required list of environment variables:
 
 ADMINS (Comma-separated list of slack user_id's, easy to grab by running /workspacedebug)
-ADMIN_CHANNEL (Slack channel ID)
+ADMIN_CHANNELS (Slack channel IDs)
 DIRECTORYID (Current DirectoryId for interactions)
 BUNDLEID (Current BundleId for provisioning)
 
 BUNDLEID_APSE1 (singapore bundle ID)
 BUNDLEID_APSE2 (sydney)
+
 SLACKTOKEN (Slack OAuth Token - https://api.slack.com/apps/<appid>/oauth)
 
 Optional environment variables:
@@ -36,10 +37,11 @@ from workspaceconfig import * # pylint: disable=wildcard-import,unused-wildcard-
 from workspaces.bundles import workspacebundles
 import workspaces.create
 from workspaces.debug import workspacedebug
-from workspaces.info import workspaceinfo
+import workspaces.info
+
 from workspaces.list import workspacelist
 from workspaces.terminate import workspaceterminate
-from workspaces.utilities import return_message, validcommand
+from workspaces.utilities import call_lambda, return_message, validcommand
 
 ERROR_403 = {'statusCode' : 403, 'body' : "Nope"}
 
@@ -48,8 +50,7 @@ def dump_debug(event, payload, message_source="Fallthrough"): # pylint: disable=
     """ posts a slack message with a load of debug info """
     slackclient = WebClient(token=CONFIGURATION.get('slacktoken'))
     slackclient.chat_postEphemeral(
-        #channel=CONFIGURATION.get('jamestoken'),
-        channel=CONFIGURATION.get('adminchannel'),
+        channel=CONFIGURATION.get('adminchannels')[0],
         user=CONFIGURATION['jamesid'],
         text=f"""
 *{message_source}:*
@@ -67,16 +68,31 @@ Payload:
 def lambda_handler(event, context): # pylint: disable=unused-argument
     """ main function for this lambda """
 
+    #############################################################
+    #
+    # If you call from another lambda
+    #
+    #############################################################
+
     if event.get('fromotherlambda'):
         print("Running from another Lambda call")
 
         if event.get('action') == 'workspacecreate_doit':
             print("Doing workspacecreate_doit")
             workspaces.create.do_creation(event)
+        elif event.get('action') == 'workspaceinfo':
+            print("Doing workspaceinfo")
+            workspaces.info.multiregion(event)
         else:
             print("**************** EVENT DATA FOR CROSS_LAMBDA EXECUTION #***********************")
             print(json_dumps(event))
         return return_message("Done")
+
+    #############################################################
+    #
+    # Probably from modal events
+    #
+    #############################################################
     else:
         data = event.get('body', False)
         if not data:
@@ -85,8 +101,8 @@ def lambda_handler(event, context): # pylint: disable=unused-argument
             data = b64decode(event.get('body', False))
 
         # neeed to set the admin channel
-        if not ADMIN_CHANNEL:
-            return return_message("No ADMIN_CHANNEL defined in configuration, I can't work :slightly_frowning_face:")
+        #if not ADMIN_CHANNELS:
+        #    return return_message("No ADMIN_CHANNEL defined in configuration, I can't work :slightly_frowning_face:")
 
         elements = data.decode('utf-8').replace('%2F', '/').split("&")
         element_data = [element.split('=') for element in elements]
@@ -134,7 +150,7 @@ def lambda_handler(event, context): # pylint: disable=unused-argument
             # if you're an admin you can run it anywhere, if you're calling it from
             # the admin channel anyone can run admin commands
             if command in ADMIN_COMMANDS:
-                if (data.get('channel_id') != ADMIN_CHANNEL) and (command_user not in ADMINS):
+                if (data.get('channel_id') not in ADMIN_CHANNELS) and (command_user not in ADMINS):
                     return return_message(f"You need to be an admin to use {command}")
 
             argument = data.get('text')
@@ -154,7 +170,7 @@ def lambda_handler(event, context): # pylint: disable=unused-argument
                     workspacebundles(
                         context,
                         configuration=CONFIGURATION,
-                        argument=argument
+                        argument=argument,
                         ))
             elif command == 'workspaceterminate':
                 return return_message(
@@ -163,11 +179,17 @@ def lambda_handler(event, context): # pylint: disable=unused-argument
                         username=argument,
                     ))
             elif command == 'workspaceinfo':
-                return return_message(
-                    workspaceinfo(
-                        configuration=CONFIGURATION,
-                        username=argument,
-                        ))
+                # return return_message(
+                #     workspaceinfo(
+                #         configuration=CONFIGURATION,
+                #         username=argument,
+                #         ))
+                call_lambda({
+                    'action' : 'workspaceinfo',
+                    'configuration' : CONFIGURATION,
+                    'username' : argument,
+                })
+                return return_message(f"Querying workspaceinfo for {argument}")
             elif command == 'workspacelist':
                 return return_message(
                     workspacelist(

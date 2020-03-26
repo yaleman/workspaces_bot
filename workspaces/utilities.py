@@ -4,6 +4,41 @@ import json
 import boto3
 from boto3.session import Session
 
+def call_lambda(payload: dict):
+    """ calls workspacebot for chained events """
+    if 'action' not in payload:
+        raise ValueError(f"need to feed an action in the payload, payload was: {json.dumps(payload, indent=2)}")
+    if 'configuration' not in payload:
+        raise ValueError(f"need to feed configuration in the payload, payload was: {json.dumps(payload, indent=2)}")
+    payload['fromotherlambda'] = True
+    lambdaclient = boto3.client('lambda')
+    lambdaclient.invoke(
+        FunctionName='workspacebot',
+        InvocationType='Event',
+        Payload=json.dumps(payload),
+    )
+
+def dump_debug(event, configuration, payload):
+    """ posts a slack message with a load of debug info """
+#     slackclient = WebClient(token=configuration.get('slacktoken'))
+#     slackclient.chat_postEphemeral(
+#         #channel=CONFIGURATION.get('jamestoken'),
+#         channel=configuration.get('adminchannels'),
+#         user=configuration['jamesid'],
+    print(f"""
+*Dump_debug:*
+
+Event:
+{json.dumps(event, indent=2)}
+
+Configuration:
+{json.dumps(configuration, indent=2)}
+
+Payload:
+{json.dumps(payload, indent=4)}
+""")
+    return return_message("Dumping Debug")
+
 def get_bundle_name(bundleid):
     """ returns the name of a given bundle id """
     bundles = get_bundles()
