@@ -10,6 +10,7 @@ pytest = "*"
 [packages]
 boto3 = "*"
 slackclient = "*"
+loguru = "*"
 
 [requires]
 python_version = "3.7"

@@ -1,7 +1,9 @@
 """ implements the create-user workflow """
 
 import json
+
 import boto3.session
+from loguru import logger
 from slack import WebClient
 from slack.errors import SlackApiError
 
@@ -132,7 +134,7 @@ CREATEUSER_MODAL = {
 
 def do_create(configuration, username, region='ap-southeast-2', tags=[]): # pylint: disable=dangerous-default-value
     """ does the creation of a workspace """
-    print(f"Starting session in {region}")
+    logger.debug(f"Starting session in {region}")
     session = boto3.session.Session(
         region_name=region,
         )
@@ -145,61 +147,55 @@ def do_create(configuration, username, region='ap-southeast-2', tags=[]): # pyli
         'ap-southeast-2' : configuration.get('directoryid_apse2'),
     }
 
+    workspace_to_create = {'DirectoryId': directorymap[region],
+                           'UserName': username,
+                           'BundleId': bundlemap[region],
+                           'UserVolumeEncryptionEnabled': False,
+                           'RootVolumeEncryptionEnabled': False,
+                           'WorkspaceProperties': {
+                               'RunningMode': configuration.get('runningmode'),
+                               'RunningModeAutoStopTimeoutInMinutes': configuration.get('auto_stop_minutes'),
+                               'RootVolumeSizeGib': configuration.get('rootvolumesize'),
+                               'UserVolumeSizeGib': configuration.get('uservolumesize'),
+                               'ComputeTypeName': configuration.get('computetypename'),
+                           },
+                           'Tags' : tags,
+                          }
     client = session.client('workspaces')
-    return client.create_workspaces(
-                Workspaces=[
-                    {
-                        'DirectoryId': directorymap[region],
-                        'UserName': username,
-                        'BundleId': bundlemap[region],
-                        'UserVolumeEncryptionEnabled': False,
-                        'RootVolumeEncryptionEnabled': False,
-                        'WorkspaceProperties': {
-                            'RunningMode': configuration.get('runningmode'),
-                            'RunningModeAutoStopTimeoutInMinutes': configuration.get('auto_stop_minutes'),
-                            'RootVolumeSizeGib': configuration.get('rootvolumesize'),
-                            'UserVolumeSizeGib': configuration.get('uservolumesize'),
-                            'ComputeTypeName': configuration.get('computetypename'),
-                        },
-                        'Tags' : tags,
-                    },
-                ])
-
+    logger.debug("Doing create action, here's the input:")
+    logger.debug(json.dumps(workspace_to_create))
+    return client.create_workspaces(Workspaces=[workspace_to_create])
 
 def create(
         username,
         configuration,
     ):
     """ creates a workspace for a given user """
-    print("workspacecreate() start")
-    # if configuration.get('user_id') == configuration.get('jamesid'):
+    logger.debug("workspacecreate() start")
     try:
-        #print("take the username, find the right block and set the initial value")
         for index, block in enumerate(CREATEUSER_MODAL['blocks']):
-            #if block.get('type') == 'input':
             if block.get('block_id') == ID_BLOCK_USERNAME:
                 CREATEUSER_MODAL['blocks'][index]['element']['initial_value'] = username
-                print("Updated create_field_username field")
-                # remove the placeholder if we set username
-        print("pop a modal for the user")
+                logger.debug("Updated create_field_username field")
+        logger.debug("Popping a modal for the user")
         slackclient = WebClient(token=configuration.get('slacktoken'))
-        print(f"trigger ID: {configuration.get('trigger_id')}")
+        logger.debug(f"Trigger ID: {configuration.get('trigger_id')}")
         slackclient.views_open(
             trigger_id=configuration.get('trigger_id'),
             view=CREATEUSER_MODAL
         )
     except SlackApiError as ERROR: # pylint: disable=invalid-name
-        print(f"SlackApiError: {ERROR}")
+        logger.error(f"SlackApiError: {ERROR}")
         configuration['error'] = str(ERROR)
 
         slackclient = WebClient(token=configuration.get('slacktoken'))
-        print("Messaging user to advise...")
+        logger.error("Messaging user to advise...")
         response = slackclient.chat_postEphemeral(
             channel=configuration.get('channel_id'),
             user=configuration.get('user_id'),
             text="Failed to pop up the 'create user' dialogue, can you try that again?",
         )
-        print(response)
+        logger.error(response)
         return False
     return return_message("Hi James. Did the modal pop?")
     # else:
@@ -216,14 +212,14 @@ def create(
 
 def handle_view_submission(event, payload, configuration): # pylint: disable=unused-argument
     """ handles when users hit submit from the create workspace view """
-    print("Received user submssion form")
+    logger.debug("Received user submssion form")
     # create user view submission
     #retval = "You probably shouldn't see this?"
     if payload['view'].get('state', {}).get('values'):
         #VIEWSTATE = payload['view']['state']
         #if VIEWSTATE.get('values'):
         STATE_VALUES = payload['view']['state'].get("values") # pylint: disable=invalid-name
-        print(f"STATE Values: {STATE_VALUES}")
+        logger.debug(f"STATE Values: {STATE_VALUES}")
         endstate = {}
         for value in STATE_VALUES:
             if value == ID_BLOCK_USERNAME:
@@ -240,8 +236,8 @@ def handle_view_submission(event, payload, configuration): # pylint: disable=unu
             else:
                 # uh, what?
                 pass
-        print(f"User submitted create form: {json.dumps(endstate, indent=2)}") # pylint: disable=line-too-long
-        print("Doing do_create() in another call")
+        logger.debug(f"User submitted create form: {json.dumps(endstate, indent=2)}") # pylint: disable=line-too-long
+        logger.info("Doing do_create() in another call")
         tags = [
             {
                 'Key' : 'Location',
@@ -274,7 +270,7 @@ def handle_view_submission(event, payload, configuration): # pylint: disable=unu
 
 
     else:
-        print("No values in payload['view'].get('state', {}).get('values')")
+        logger.error("No values in payload['view'].get('state', {}).get('values')")
 
     RETURN_UPDATE_MODAL = { #pylint: disable=invalid-name
         'statusCode' : 200,
@@ -312,8 +308,8 @@ def handle_view_submission(event, payload, configuration): # pylint: disable=unu
         'body' : json.dumps({"response_action": "clear"}),
         "isBase64Encoded" : False
     }
-    print("Updating the modal...")
-    #print(json.dumps(RETURN_UPDATE_MODAL, indent=2))
+    logger.debug("Updating the modal...")
+    logger.debug(json.dumps(RETURN_UPDATE_MODAL, indent=2))
     return RETURN_UPDATE_MODAL
 
 def do_creation(event):
@@ -325,7 +321,7 @@ def do_creation(event):
         region=region,
         tags=event.get('tags'),
     )
-    print(retval)
+    logger.debug(retval)
     slackclient = WebClient(token=event.get('configuration').get('slacktoken'))
     messages_to_send = []
     # message them about failed requests

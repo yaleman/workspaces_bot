@@ -2,6 +2,7 @@
 
 from boto3.session import Session
 
+from loguru import logger
 from slack import WebClient
 from .utilities import get_bundle_name
 
@@ -10,17 +11,15 @@ def multiregion(event):
 
     need to pass username in the event
     """
-    print("workspaces.info.multiregion() starting")
+    logger.debug("workspaces.info.multiregion() starting")
 
-    username = event.get('username')
-    configuration = event.get('configuration')
+    configuration = event.get('configuration', {})
 
     user_workspaces = []
-    for region in event.get('configuration').get('regions'):
+    for region in configuration.get('regions'):
         # need to get the directoryid for each region
-        directoryid = configuration.get('directorymap', {}).get(region)
-        if not directoryid:
-            print(f"Couldn't find directoryid for region '{region}' in workspaces.info.multiregion()")
+        if not configuration.get('directorymap', {}).get(region):
+            logger.error(f"Couldn't find directoryid for region '{region}' in workspaces.info.multiregion()")
             continue
 
         try:
@@ -28,14 +27,14 @@ def multiregion(event):
                 region_name=region
             )
         except Exception as ERROR: # pylint: disable=broad-except,invalid-name
-            error_message = f"Failed to instantiate session with region {region}: {ERROR}"
-            print(error_message)
+            logger.error(f"Failed to instantiate session with region {region}: {ERROR}")
             return False
+
         try:
             client = session.client('workspaces')
             findworkspace = client.describe_workspaces(
-                DirectoryId=directoryid,
-                UserName=username,
+                DirectoryId=configuration.get('directorymap', {}).get(region),
+                UserName=event.get('username'),
             )
             if findworkspace.get('Workspaces'):
                 for workspace in findworkspace.get('Workspaces'):
@@ -45,19 +44,18 @@ def multiregion(event):
                     user_workspaces.append(f"{wsid} in state {state} (Region: {region} Bundle: {bundlename})") #pylint: disable=line-too-long
 
         except Exception as e: # pylint: disable=broad-except,invalid-name
-            error_message = f"ERROR: {e}"
-            print(error_message)
+            logger.error(f"ERROR: {e}")
             return False
 
     # message the user with the results
     slackclient = WebClient(token=configuration.get('slacktoken'))
-    print("Messaging user to advise...")
+    logger.debug("Messaging user to advise...")
 
     if not user_workspaces:
-        response = slackclient.chat_postEphemeral(
+        slackclient.chat_postEphemeral(
             channel=configuration.get('channel_id'),
             user=configuration.get('user_id'),
-            text=f"No workspaces found for username {username}"
+            text=f"No workspaces found for username {event.get('username')}"
         )
     else:
         blocks = [
@@ -65,7 +63,7 @@ def multiregion(event):
                 "type": "section",
                 "text": {
                     "type": "mrkdwn",
-                    "text": f"Workspace information for user {username}"
+                    "text": f"Workspace information for user {event.get('username')}"
                 }
             },
         ]
@@ -77,10 +75,9 @@ def multiregion(event):
                     "text": f"• {workspace}"
                 }
                 })
-        response = slackclient.chat_postEphemeral(
+        logger.debug(slackclient.chat_postEphemeral(
             channel=configuration.get('channel_id'),
             user=configuration.get('user_id'),
-            #text=f"Results for workspaceinfo {username}:\n{text}",
             blocks=blocks,
-        )
-    print(response)
+        ))
+    return True

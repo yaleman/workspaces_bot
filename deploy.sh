@@ -1,29 +1,18 @@
 #!/usr/bin/env bash
 
-pipenv run pytest *.py workspaces/*.py 
+echo "doing testing"
+pipenv run pytest "*.py" 
+pipenv run pytest workspaces
 
-mv setup.txt setup.cfg
-
+pipenv run pylint workspaces
+echo "done testing, removing old code"
 if [ -f function.zip ]; then   
     rm function.zip
 fi
+rm -rf package/
 
-if [ -z "${1}" ]; then
-    if [ "${1}" == "clean" ]; then
-        echo "Removing old package"
-        rm -rf package/
-
-        echo "Updating python libs"
-        pip3 install --upgrade --target ./package -r requirements.txt
-
-    else
-        echo "Don't know what ${1} means, try clean?"
-    fi
-fi
-
-
-mv setup.cfg setup.txt 
-
+echo "Updating python libs"
+pip3 install --upgrade --target ./package -r requirements.txt
 rsync -a workspaces package/
 
 cd package || exit
@@ -39,5 +28,3 @@ zip -r9 -g function.zip workspace*.py
 
 echo "Uploading package to lambda"
 AWS_PROFILE=aws-323 aws lambda update-function-code --function-name workspacebot --zip-file fileb://function.zip
-
-

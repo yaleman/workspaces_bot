@@ -3,7 +3,7 @@
 
 from .utilities import get_bundles, get_workspaces
 
-def workspacelist(configuration, argument_object, region='ap-southeast-1'):
+def workspacelist(configuration, argument_object, region='ap-southeast-1'): # pylint: disable=too-many-locals,too-many-branches
     """ lists the currently provisioned workspaces """
     bundle_data = {}
     for bundle in get_bundles():
@@ -27,7 +27,7 @@ def workspacelist(configuration, argument_object, region='ap-southeast-1'):
             'text' : 'Hostname',
             },
     }
-    try:
+    try: # pylint: disable=too-many-nested-blocks
         print("Getting workspaces")
         workspaces = get_workspaces(configuration=configuration, region=region)
         print("done!")
@@ -47,15 +47,14 @@ def workspacelist(configuration, argument_object, region='ap-southeast-1'):
                 text += f"{state} ({len(states[state])})\n```"
                 # calculate field layouts
                 for field in workspace_field:
-                    lengths = [workspace_field[field]['default']] + [len(w.get(field, 'n/a')) for w in states[state]]
-                    workspace_field[field]['current'] = max(lengths)
-                    fstring = '{:<'+str(max(lengths))+'}\t'
+                    max_lengths = max([workspace_field[field]['default']] + [len(w.get(field, 'n/a')) for w in states[state]]) #pylint: disable=line-too-long
+                    workspace_field[field]['current'] = max_lengths
+                    fstring = '{:<'+str(max_lengths)+'}\t'
                     text += fstring.format(workspace_field[field]['text'])
                 text += "Bundle Name\n"
                 # display code
                 for workspace in states[state]:
                     workspacebundle = bundle_data.get(workspace.get('BundleId'))
-                    bundlename = workspacebundle.get("Name")
                     for field in workspace_field:
                         fstring = '{:<'+str(workspace_field[field]['current'])+'}\t'
                         if workspace.get(field):
@@ -63,7 +62,7 @@ def workspacelist(configuration, argument_object, region='ap-southeast-1'):
                         else:
                             text += fstring.format("n/a")
                     if workspace.get('BundleId'):
-                        text += f"{bundlename}\n"
+                        text += "{}\n".format(workspacebundle.get("Name"))
                     else:
                         text += "n/a\n"
                 text += "```\n"

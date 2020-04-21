@@ -116,17 +116,19 @@ def set_bundle(context, bundleid):
         Environment=environment,
     )
     if response.get('LastUpdateStatus') == 'Successful':
-        return " <=- Set as new active bundle"
+        retval = " <=- Set as new active bundle"
     else:
-        return f"\n\nERROR Setting Bundle:\n{json.dumps(response, indent=2)}"
+        retval = f"\n\nERROR Setting Bundle:\n{json.dumps(response, indent=2)}"
+    return retval
 
 def validcommand(command, valid_commands):
     """ checks if the command is a valid command """
     if not command:
         return False
-    elif command.startswith('/'):
+    # clean up weird slack formatting things
+    if command.startswith('/'):
         command = command[1:]
-    elif command.startswith('%2F'):
+    if command.startswith('%2F'):
         command = command[3:]
     if command in valid_commands:
         return True
