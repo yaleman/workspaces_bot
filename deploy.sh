@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
 echo "doing testing"
-pipenv run pytest "*.py" 
+# shellcheck disable=SC2035
+pipenv run pytest *.py
 pipenv run pytest workspaces
 
 pipenv run pylint workspaces
