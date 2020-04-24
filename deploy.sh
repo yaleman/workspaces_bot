@@ -1,5 +1,10 @@
 #!/usr/bin/env bash
 
+if [ "$(basename "$(pwd)")" != "workspaces_bot" ]; then
+    echo "Need to run this from ./workspaces_bot"
+    exit
+fi
+
 echo "doing testing"
 # shellcheck disable=SC2035
 pipenv run pytest *.py
@@ -10,7 +15,7 @@ echo "done testing, removing old code"
 if [ -f function.zip ]; then   
     rm function.zip
 fi
-rm -rf package/
+rm -rf ./package/
 
 echo "Updating python libs"
 pip3 install --upgrade --target ./package -r requirements.txt
@@ -28,4 +33,8 @@ echo "Adding workspace* to package"
 zip -r9 -g function.zip workspace*.py
 
 echo "Uploading package to lambda"
-AWS_PROFILE=aws-323 aws lambda update-function-code --function-name workspacebot --zip-file fileb://function.zip
+AWS_PROFILE=aws-323 aws lambda update-function-code --function-name workspacebot --zip-file fileb://function.zip || exit
+
+echo "Removing package folder"
+rm -rf ./package/
+rm function.zip

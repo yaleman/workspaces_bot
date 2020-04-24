@@ -1,8 +1,10 @@
 """ utilities functions """
 
 import json
+
 import boto3
 from boto3.session import Session
+from loguru import logger
 
 def call_lambda(payload: dict):
     """ calls workspacebot for chained events """
@@ -18,7 +20,33 @@ def call_lambda(payload: dict):
         Payload=json.dumps(payload),
     )
 
-def dump_debug(event, configuration, payload):
+def get_workspaces_for_user(configuration: dict, username: str):
+    """ returns a list of dicts about user workspaces
+    """
+    foundworkspaces = []
+    for region in configuration.get('directorymap'):
+        directoryid = configuration['directorymap'][region]
+        logger.debug(f"Finding workspaces in {region} for {username} (directoryid: {directoryid})")
+
+        session = boto3.session.Session(region_name=region)
+        client = session.client('workspaces')
+
+        try:
+            response = client.describe_workspaces(DirectoryId=directoryid, UserName=username)
+            responsedata = response.get('Workspaces')
+            if not responsedata:
+                logger.warning(f"No workspaces found in {region} for {username}")
+                logger.debug(response)
+            else:
+                responsedata = responsedata[0]
+                logger.debug(f"Found workspace: {responsedata.get('WorkspaceId')}")
+                responsedata['region'] = region
+                foundworkspaces.append(responsedata)
+        except Exception as client_exception: # pylint: disable=broad-except
+            logger.warning(f"Exception raised: {client_exception}")
+    return foundworkspaces
+
+def dump_debug(event, configuration: dict, payload):
     """ posts a slack message with a load of debug info """
 #     slackclient = WebClient(token=configuration.get('slacktoken'))
 #     slackclient.chat_postEphemeral(

@@ -41,6 +41,7 @@ ADMIN_COMMANDS = [
     'workspaceterminate',
     'workspacebundles',
     'workspacelist',
+    'workspacerestart',
     ]
 USER_COMMANDS = [
     'workspaceinfo',

@@ -40,6 +40,7 @@ from workspaces.debug import workspacedebug
 import workspaces.info
 
 from workspaces.list import workspacelist
+from workspaces.restart import workspacerestart
 from workspaces.terminate import workspaceterminate
 from workspaces.utilities import call_lambda, return_message, validcommand
 
@@ -83,6 +84,9 @@ def lambda_handler(event, context): # pylint: disable=unused-argument
         elif event.get('action') == 'workspaceinfo':
             print("Doing workspaceinfo")
             workspaces.info.multiregion(event)
+        elif event.get('action') == 'workspacerestart':
+            print("Doing workspacerestart")
+            workspacerestart(event)
         else:
             print("**************** EVENT DATA FOR CROSS_LAMBDA EXECUTION #***********************")
             print(json_dumps(event))
@@ -190,6 +194,13 @@ def lambda_handler(event, context): # pylint: disable=unused-argument
                     'username' : argument,
                 })
                 return return_message(f"Querying workspaceinfo for {argument}")
+            elif command == 'workspacerestart':
+                call_lambda({
+                    'action' : 'workspacerestart',
+                    'configuration' : CONFIGURATION,
+                    'workspaceid' : argument,
+                })
+                return return_message(f"Requesting workspace restart for {argument}")
             elif command == 'workspacelist':
                 return return_message(
                     workspacelist(
@@ -206,4 +217,4 @@ def lambda_handler(event, context): # pylint: disable=unused-argument
             else:
                 return return_message("That command didn't do anything, sorry.")
         else:
-            return dump_debug(event, payload)
+            return dump_debug(event, context)
