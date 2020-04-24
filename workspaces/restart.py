@@ -50,7 +50,7 @@ def workspacerestart(event: dict):
                 if response.get('FailedRequests'):
                     text = f"Failed request: {response.get('FailedRequests')}"
                 elif response.get('ResponseMetadata', {}).get('HTTPStatusCode') == 200:
-                    text = f"Success! Restarting {workspaceid}"
+                    text = f"Success! Restarting {workspaceid} - this typically takes 15 minutes."
 
             except Exception as reboot_error: # pylint: disable=broad-except
                 text = f"Exception raised while attempting to reboot {workspaceid} in {region}: {reboot_error}"
