@@ -2,3 +2,4 @@ notes.md
 .vscode/*
 package/*
 function.zip
+**__pycache__**
