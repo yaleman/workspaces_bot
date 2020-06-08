@@ -9,8 +9,8 @@ from slack.errors import SlackApiError
 
 from .utilities import call_lambda, return_message
 
-TAG_LOCATIONS = ['Brisbane', 'Sydney', 'Melbourne', 'Manila']
-TAG_TEAMS = ['WebCentral', 'ARQ Care', 'TPP Wholesale']
+TAG_LOCATIONS = ['Brisbane', 'Sydney', 'Melbourne', 'Manila', "Other"]
+TAG_TEAMS = ['Webcentral', 'ARQ Care', 'TPP Wholesale']
 REGIONS = ['ap-southeast-2', 'ap-southeast-1']
 
 ID_VIEW_CREATEUSER = 'view_createuser'
@@ -164,7 +164,9 @@ def do_create(configuration, username, region='ap-southeast-2', tags=[]): # pyli
     client = session.client('workspaces')
     logger.debug("Doing create action, here's the input:")
     logger.debug(json.dumps(workspace_to_create))
-    return client.create_workspaces(Workspaces=[workspace_to_create])
+    result = client.create_workspaces(Workspaces=[workspace_to_create])
+    logger.debug(json.dumps(result))
+    return result
 
 def create(
         username,
