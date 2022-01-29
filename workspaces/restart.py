@@ -2,7 +2,7 @@
 
 import boto3.session
 from loguru import logger
-from slack import WebClient
+from slack import WebClient # type: ignore
 
 
 def workspacerestart(event: dict):

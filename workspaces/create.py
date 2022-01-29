@@ -4,8 +4,8 @@ import json
 
 import boto3.session
 from loguru import logger
-from slack import WebClient
-from slack.errors import SlackApiError
+from slack import WebClient # type: ignore
+from slack.errors import SlackApiError # type: ignore
 
 from .utilities import call_lambda, return_message
 

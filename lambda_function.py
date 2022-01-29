@@ -31,7 +31,7 @@ from json import dumps as json_dumps
 from json import loads as json_loads
 import urllib.parse
 
-from slack import WebClient
+from slack import WebClient # type: ignore
 
 from workspaceconfig import * # pylint: disable=wildcard-import,unused-wildcard-import
 from workspaces.bundles import workspacebundles
@@ -97,124 +97,120 @@ def lambda_handler(event, context): # pylint: disable=unused-argument
     # Probably from modal events
     #
     #############################################################
-    else:
-        data = event.get('body', False)
-        if not data:
+    data = event.get('body', False)
+    if not data:
+        return ERROR_403
+    if event.get('isBase64Encoded', False):
+        data = b64decode(event.get('body', False))
+
+    # neeed to set the admin channel
+    #if not ADMIN_CHANNELS:
+    #    return return_message("No ADMIN_CHANNEL defined in configuration, I can't work :slightly_frowning_face:")
+
+    elements = data.decode('utf-8').replace('%2F', '/').split("&")
+    element_data = [element.split('=') for element in elements]
+
+    data = {}
+    for (key, value) in element_data:
+        data[key] = value
+
+    if data.get('payload'):
+        payload = json_loads(
+            urllib.parse.unquote(
+                data.get('payload'),
+                ))
+        # you've taken an action in a view
+        if payload.get('type') == 'block_actions':
+            # search through the actions
+            for action in payload.get('actions'):
+                if action.get('action_id') == 'create_from_modal':
+                    pass
+            # someone clicked a thing in a block
+            print("Made it to unhandled block action")
+            print("Actions:")
+            print(json_dumps(payload.get('actions'), indent=2))
             return ERROR_403
-        if event.get('isBase64Encoded', False):
-            data = b64decode(event.get('body', False))
+            #dump_debug(event, payload, 'made it to block actions')
 
-        # neeed to set the admin channel
-        #if not ADMIN_CHANNELS:
-        #    return return_message("No ADMIN_CHANNEL defined in configuration, I can't work :slightly_frowning_face:")
-
-        elements = data.decode('utf-8').replace('%2F', '/').split("&")
-        element_data = [element.split('=') for element in elements]
-
-        data = {}
-        for (key, value) in element_data:
-            data[key] = value
-
-        if data.get('payload'):
-            payload = json_loads(
-                urllib.parse.unquote(
-                    data.get('payload'),
-                    ))
-            # you've taken an action in a view
-            if payload.get('type') == 'block_actions':
-                # search through the actions
-                for action in payload.get('actions'):
-                    if action.get('action_id') == 'create_from_modal':
-                        pass
-                # someone clicked a thing in a block
-                print("Made it to unhandled block action")
-                print("Actions:")
-                print(json_dumps(payload.get('actions'), indent=2))
-                return ERROR_403
-                #dump_debug(event, payload, 'made it to block actions')
-
-            elif payload.get('type') == "view_submission":      # you're hitting submit on a view
-                if payload.get('view'):
-                    if payload['view'].get('callback_id') == workspaces.create.ID_VIEW_CREATEUSER:
-                        return workspaces.create.handle_view_submission(event, payload, CONFIGURATION)
-                    else:
-                        print(f"Got a submission of type '{payload['view'].get('callback_id')}' - cannot handle that.'")
-            else:
-                #print("********** PAYLOAD **********")
-                #print(json_dumps(payload, indent=2))
-                print(f"Got a payload type '{payload['type']}' - unhandled")
-            return return_message("payload sent, wtf?")
-
-        elif validcommand(data.get('command', False), VALID_COMMANDS): #pylint: disable=no-else-return
-            command = data.get('command')[1:]
-            command_user = data.get('user_id')
-            CONFIGURATION['user_id'] = command_user
-            CONFIGURATION['trigger_id'] = data.get('trigger_id')
-            CONFIGURATION['channel_id'] = data.get('channel_id')
-            # if you're an admin you can run it anywhere, if you're calling it from
-            # the admin channel anyone can run admin commands
-            if command in ADMIN_COMMANDS:
-                if (data.get('channel_id') not in ADMIN_CHANNELS) and (command_user not in ADMINS):
-                    return return_message(f"You need to be an admin to use {command}")
-
-            argument = data.get('text')
-            userlength = len(argument.split("+"))
-            if userlength > 1:
-                argument = argument.replace('+', ' ')
-                return return_message(f"aws bot only works for one argument, was provided {userlength} in argument: '{argument}'") #pylint: disable=line-too-long
-            elif command == 'workspacecreate':
-                workspaces.create.create(
-                    username=argument,
-                    configuration=CONFIGURATION,
-                    )
-                return return_message("Working on it...")
-
-            elif command == 'workspacebundles':
-                return return_message(
-                    workspacebundles(
-                        context,
-                        configuration=CONFIGURATION,
-                        argument=argument,
-                        ))
-            elif command == 'workspaceterminate':
-                return return_message(
-                    workspaceterminate(
-                        configuration=CONFIGURATION,
-                        username=argument,
-                    ))
-            elif command == 'workspaceinfo':
-                # return return_message(
-                #     workspaceinfo(
-                #         configuration=CONFIGURATION,
-                #         username=argument,
-                #         ))
-                call_lambda({
-                    'action' : 'workspaceinfo',
-                    'configuration' : CONFIGURATION,
-                    'username' : argument,
-                })
-                return return_message(f"Querying workspaceinfo for {argument}")
-            elif command == 'workspacerestart':
-                call_lambda({
-                    'action' : 'workspacerestart',
-                    'configuration' : CONFIGURATION,
-                    'workspaceid' : argument,
-                })
-                return return_message(f"Requesting workspace restart for {argument}")
-            elif command == 'workspacelist':
-                return return_message(
-                    workspacelist(
-                        configuration=CONFIGURATION,
-                        argument_object=argument,
-                        ))
-            elif command == 'workspacedebug':
-                return return_message(
-                    workspacedebug(
-                        event,
-                        context,
-                        data,
-                        ))
-            else:
-                return return_message("That command didn't do anything, sorry.")
+        if payload.get('type') == "view_submission":      # you're hitting submit on a view
+            if payload.get('view'):
+                if payload['view'].get('callback_id') == workspaces.create.ID_VIEW_CREATEUSER:
+                    return workspaces.create.handle_view_submission(event, payload, CONFIGURATION)
+                print(f"Got a submission of type '{payload['view'].get('callback_id')}' - cannot handle that.'")
         else:
-            return dump_debug(event, context)
+            #print("********** PAYLOAD **********")
+            #print(json_dumps(payload, indent=2))
+            print(f"Got a payload type '{payload['type']}' - unhandled")
+        return return_message("payload sent, wtf?")
+
+    if validcommand(data.get('command', False), VALID_COMMANDS):
+        command = data.get('command')[1:]
+        command_user = data.get('user_id')
+        CONFIGURATION['user_id'] = command_user
+        CONFIGURATION['trigger_id'] = data.get('trigger_id')
+        CONFIGURATION['channel_id'] = data.get('channel_id')
+        # if you're an admin you can run it anywhere, if you're calling it from
+        # the admin channel anyone can run admin commands
+        if command in ADMIN_COMMANDS:
+            if (data.get('channel_id') not in ADMIN_CHANNELS) and (command_user not in ADMINS):
+                return return_message(f"You need to be an admin to use {command}")
+
+        argument = data.get('text')
+        userlength = len(argument.split("+"))
+        if userlength > 1:
+            argument = argument.replace('+', ' ')
+            return return_message(f"aws bot only works for one argument, was provided {userlength} in argument: '{argument}'") #pylint: disable=line-too-long
+        if command == 'workspacecreate':
+            workspaces.create.create(
+                username=argument,
+                configuration=CONFIGURATION,
+                )
+            return return_message("Working on it...")
+
+        if command == 'workspacebundles':
+            return return_message(
+                workspacebundles(
+                    context,
+                    configuration=CONFIGURATION,
+                    argument=argument,
+                    ))
+        if command == 'workspaceterminate':
+            return return_message(
+                workspaceterminate(
+                    configuration=CONFIGURATION,
+                    username=argument,
+                ))
+        if command == 'workspaceinfo':
+            # return return_message(
+            #     workspaceinfo(
+            #         configuration=CONFIGURATION,
+            #         username=argument,
+            #         ))
+            call_lambda({
+                'action' : 'workspaceinfo',
+                'configuration' : CONFIGURATION,
+                'username' : argument,
+            })
+            return return_message(f"Querying workspaceinfo for {argument}")
+        if command == 'workspacerestart':
+            call_lambda({
+                'action' : 'workspacerestart',
+                'configuration' : CONFIGURATION,
+                'workspaceid' : argument,
+            })
+            return return_message(f"Requesting workspace restart for {argument}")
+        if command == 'workspacelist':
+            return return_message(
+                workspacelist(
+                    configuration=CONFIGURATION,
+                    argument_object=argument,
+                    ))
+        if command == 'workspacedebug':
+            return return_message(
+                workspacedebug(
+                    event,
+                    context,
+                    data,
+                    ))
+        return return_message("That command didn't do anything, sorry.")
+    return dump_debug(event, context)

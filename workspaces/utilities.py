@@ -24,7 +24,10 @@ def get_workspaces_for_user(configuration: dict, username: str):
     """ returns a list of dicts about user workspaces
     """
     foundworkspaces = []
-    for region in configuration.get('directorymap'):
+    if "directorymap" not in configuration:
+        logger.error("Couldn't find directorymap in configuration")
+        return False
+    for region in configuration['directorymap']:
         directoryid = configuration['directorymap'][region]
         logger.debug(f"Finding workspaces in {region} for {username} (directoryid: {directoryid})")
 

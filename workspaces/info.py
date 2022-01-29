@@ -3,7 +3,7 @@
 from boto3.session import Session
 
 from loguru import logger
-from slack import WebClient
+from slack import WebClient # type: ignore
 from .utilities import get_bundle_name
 
 def multiregion(event):
