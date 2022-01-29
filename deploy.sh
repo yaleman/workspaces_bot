@@ -33,7 +33,7 @@ echo "Adding workspace* to package"
 zip -r9 -g function.zip workspace*.py
 
 echo "Uploading package to lambda"
-AWS_PROFILE=aws-323 aws lambda update-function-code --function-name workspacebot --zip-file fileb://function.zip || exit
+aws lambda update-function-code --function-name workspacebot --zip-file fileb://function.zip || exit
 
 echo "Removing package folder"
 rm -rf ./package/
