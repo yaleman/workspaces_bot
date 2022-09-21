@@ -5,20 +5,21 @@ if [ "$(basename "$(pwd)")" != "workspaces_bot" ]; then
     exit
 fi
 
-echo "doing testing"
-# shellcheck disable=SC2035
-pipenv run pytest *.py
-pipenv run pytest workspaces
+echo "Installing env"
+poetry install
 
-pipenv run pylint workspaces
+echo "doing testing"
+poetry run pytest
+
+poetry run pylint workspaces *.py
 echo "done testing, removing old code"
-if [ -f function.zip ]; then   
+if [ -f function.zip ]; then
     rm function.zip
 fi
 rm -rf ./package/
 
 echo "Updating python libs"
-pip3 install --upgrade --target ./package -r requirements.txt
+python -m pip install --upgrade --target ./package -r requirements.txt
 rsync -a workspaces package/
 
 cd package || exit
